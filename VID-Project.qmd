@@ -1,11 +1,89 @@
 ---
-title: "VID-Project"
+title: "Projet VID"
+subtitle: "Données sur les crédits Allemands"
+author:
+  - name: Michael Strefeler
+    email: michael.strefeler@heig-vd.ch
+    affiliations:
+      - name: Département TIC
+highlight-style: github
+format:
+  html:
+    theme: cosmo
+    monobackgroundcolor: rgb(255,250,240)
+    code-line-numbers: false
+    embed-resources: true
+  pdf: default
+editor: visual
+toc: true
+toc-title: "Table des matières"
+toc-depth: 2
+toc-location: left
+date: 'last-modified'
+date-format: '[Version du:] D MMMM, YYYY'
+lang: fr
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+## Titre
 
 ```{r}
-1 + 1
+#| echo: true
+#| results: hide
+#| message: false
+#| warning: false
 ```
+
+```{r}
+GermanCredit <- read.csv("data/GermanCredit.csv", header=TRUE, sep=";")
+```
+
+```{r}
+library(skimr)
+skim(GermanCredit)
+```
+
+```{r}
+GermanCredit.lm <- lm(formula = RESPONSE ~ CHK_ACCT + DURATION + HISTORY + NEW_CAR + USED_CAR + FURNITURE + RADIO.TV + EDUCATION + RETRAINING + AMOUNT + SAV_ACCT + EMPLOYMENT + INSTALL_RATE + MALE_DIV + MALE_SINGLE + MALE_MAR_or_WID + CO.APPLICANT + GUARANTOR + PRESENT_RESIDENT + REAL_ESTATE + PROP_UNKN_NONE + AGE + OTHER_INSTALL + RENT + OWN_RES + NUM_CREDITS + JOB + NUM_DEPENDENTS + TELEPHONE + FOREIGN, data = GermanCredit)
+summary(GermanCredit.lm)
+```
+
+## Testing
+
+Source http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/155-best-subsets-regression-essentials-in-r/
+```{r}
+library(leaps)
+models <- regsubsets(RESPONSE ~ ., data=GermanCredit, nvmax=NULL, force.out = "OBS.")
+summary(models)
+res.sum <- summary(models)
+data.frame(
+  Adj.R2 = which.max(res.sum$adjr2),
+  CP = which.min(res.sum$cp),
+  BIC = which.min(res.sum$bic)
+)
+```
+
+```{r}
+get_model_formula <- function(id, object, outcome){
+  # get models data
+  models <- summary(object)$which[id,-1]
+  # Get outcome variable
+  form <- as.formula(object$call[[2]])
+  outcome <- all.vars(form)[1]
+  # Get model predictors
+  predictors <- names(which(models == TRUE))
+  predictors <- paste(predictors, collapse = "+")
+  # Build model formula
+  as.formula(paste0(outcome, "~", predictors))
+}
+
+lm10 <- lm(get_model_formula(10, models, "RESPONSE"), data=GermanCredit)
+summary(lm10)
+
+lm18 <- lm(get_model_formula(18, models, "RESPONSE"), data=GermanCredit)
+summary(lm18)
+
+lm23 <- lm(get_model_formula(23, models, "RESPONSE"), data=GermanCredit)
+summary(lm23)
+```
+
+
