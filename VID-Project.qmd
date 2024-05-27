@@ -13,7 +13,6 @@ format:
     monobackgroundcolor: rgb(255,250,240)
     code-line-numbers: false
     embed-resources: true
-  pdf: default
 editor: visual
 toc: true
 toc-title: "Table des matières"
@@ -24,35 +23,79 @@ date-format: '[Version du:] D MMMM, YYYY'
 lang: fr
 ---
 
-## Titre
+## Introduction
+
+Dans ce projet il nous est demandé de trouver les variables permettant d'obtenir le meilleur modèle de régression linéaire multiple pour déterminer si c'est une bonne idée de faire un crédit bancaire à une personne.
+
+
+## Analyse exploratoire des données
 
 ```{r}
-#| echo: true
-#| results: hide
-#| message: false
+df <- read.csv("data/GermanCredit.csv", header=TRUE, sep=";")
+
+# Conversion des données catégorielles en factor
+df$CHK_ACCT <- as.factor(df$CHK_ACCT)
+df$HISTORY <- as.factor(df$HISTORY)
+df$SAV_ACCT <- as.factor(df$SAV_ACCT)
+df$EMPLOYMENT <- as.factor(df$EMPLOYMENT)
+df$PRESENT_RESIDENT <- as.factor(df$PRESENT_RESIDENT)
+df$JOB <- as.factor(df$JOB)
+
+#df<- na.omit(df) # Omission des données manquantes
+```
+
+### Vérification des données
+
+```{r}
+library(summarytools)
+dfSummary(df, style="grid")
+```
+
+Voici les données observées que ne jouent pas avec la donnée: valeur min DURATION -6?, MALE_SINGLE une valeur à 2, GUARANTOR -1, PRESENT_RESIDENT valeurs de 1 à 4 alors que la données dit valeurs 0 à 3, valeur max AGE 151. Pour AGE il y a 14 valeurs manquantes.
+
+Voici les corrections validées par le client: 
+
+```{r}
+df<- na.omit(df)
+library(ggplot2)
+
+ggplot(df, aes(x=df$CHK_ACCT)) + geom_bar()
+ggplot(df, aes(x=df$SAV_ACCT)) + geom_bar()
+ggplot(df, aes(x=df$AGE)) + geom_bar()
+```
+TODO trouver comment faire une boucle ou un truc du genre pour afficher un graphique par colonne.
+
+## Premier modèle de régression multiple
+
+```{r}
+df.lm <- lm(formula = RESPONSE ~ . - OBS., data = df)
+summary(df.lm)
+```
+
+```{r}
 #| warning: false
+#| fig-height: 7
+library(ggResidpanel)
+resid_interact(df.lm, plots = c("resid", "qq", "cookd", "boxplot"))
 ```
 
-```{r}
-GermanCredit <- read.csv("data/GermanCredit.csv", header=TRUE, sep=";")
-```
+## Recherche du meilleur modèle
 
-```{r}
-library(skimr)
-skim(GermanCredit)
-```
+[link](https://towardsdatascience.com/selecting-the-best-predictors-for-linear-regression-in-r-f385bf3d93e9)
 
-```{r}
-GermanCredit.lm <- lm(formula = RESPONSE ~ CHK_ACCT + DURATION + HISTORY + NEW_CAR + USED_CAR + FURNITURE + RADIO.TV + EDUCATION + RETRAINING + AMOUNT + SAV_ACCT + EMPLOYMENT + INSTALL_RATE + MALE_DIV + MALE_SINGLE + MALE_MAR_or_WID + CO.APPLICANT + GUARANTOR + PRESENT_RESIDENT + REAL_ESTATE + PROP_UNKN_NONE + AGE + OTHER_INSTALL + RENT + OWN_RES + NUM_CREDITS + JOB + NUM_DEPENDENTS + TELEPHONE + FOREIGN, data = GermanCredit)
-summary(GermanCredit.lm)
-```
-
-## Testing
-
-Source http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/155-best-subsets-regression-essentials-in-r/
-```{r}
+```{{r}}
 library(leaps)
-models <- regsubsets(RESPONSE ~ ., data=GermanCredit, nvmax=NULL, force.out = "OBS.")
+Best_Subset <- regsubsets(RESPONSE~., data = df, nbest = 1, nvmax = NULL, force.in = NULL, force.out =  "OBS.", method = "exhaustive")
+summary_best_subset <- summary(regsubsets.out)
+as.data.frame(summary_best_subset$outmat)
+which.max(summary_best_subset$adjr2)
+summary_best_subset$which[13,]
+```
+
+[Source](http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/155-best-subsets-regression-essentials-in-r/)
+```{{r}}
+library(leaps)
+models <- regsubsets(RESPONSE ~ ., data=df, nvmax=NULL, force.out = "OBS.")
 summary(models)
 res.sum <- summary(models)
 data.frame(
@@ -62,7 +105,7 @@ data.frame(
 )
 ```
 
-```{r}
+```{{r}}
 get_model_formula <- function(id, object, outcome){
   # get models data
   models <- summary(object)$which[id,-1]
@@ -76,14 +119,14 @@ get_model_formula <- function(id, object, outcome){
   as.formula(paste0(outcome, "~", predictors))
 }
 
-lm10 <- lm(get_model_formula(10, models, "RESPONSE"), data=GermanCredit)
-summary(lm10)
+#lm10 <- lm(get_model_formula(10, models, "RESPONSE"), data=df)
+#summary(lm10)
 
-lm18 <- lm(get_model_formula(18, models, "RESPONSE"), data=GermanCredit)
-summary(lm18)
+#lm18 <- lm(get_model_formula(18, models, "RESPONSE"), data=df)
+#summary(lm18)
 
-lm23 <- lm(get_model_formula(23, models, "RESPONSE"), data=GermanCredit)
-summary(lm23)
+#lm23 <- lm(get_model_formula(23, models, "RESPONSE"), data=df)
+#summary(lm23)
 ```
 
 
