@@ -40,30 +40,55 @@ df$SAV_ACCT <- as.factor(df$SAV_ACCT)
 df$EMPLOYMENT <- as.factor(df$EMPLOYMENT)
 df$PRESENT_RESIDENT <- as.factor(df$PRESENT_RESIDENT)
 df$JOB <- as.factor(df$JOB)
-
-#df<- na.omit(df) # Omission des données manquantes
 ```
 
 ### Vérification des données
 
 ```{r}
-library(summarytools)
-dfSummary(df, style="grid")
+summary(df)
 ```
-
-Voici les données observées que ne jouent pas avec la donnée: valeur min DURATION -6?, MALE_SINGLE une valeur à 2, GUARANTOR -1, PRESENT_RESIDENT valeurs de 1 à 4 alors que la données dit valeurs 0 à 3, valeur max AGE 151. Pour AGE il y a 14 valeurs manquantes.
-
-Voici les corrections validées par le client: 
 
 ```{r}
-df<- na.omit(df)
-library(ggplot2)
+#| fig-height: 40
+#| fig-width: 12
+#| warning: false
 
-ggplot(df, aes(x=df$CHK_ACCT)) + geom_bar()
-ggplot(df, aes(x=df$SAV_ACCT)) + geom_bar()
-ggplot(df, aes(x=df$AGE)) + geom_bar()
+library(ggplot2)
+library(gridExtra)
+
+# Liste des colonnes sans "OBS."
+columns_to_plot <- setdiff(names(df), c("OBS."))
+
+# Liste des graphiques
+plots <- list()
+
+# Boucle pour faire un graphique par colonne
+for (col in columns_to_plot) {
+  # Création du graphique
+  p <- ggplot(df, aes_string(x = col)) +
+    geom_bar() +
+    ggtitle(paste("Colonne: ", col)) +
+    xlab(col) +
+    theme_minimal()
+  
+  # Ajout du graphique à la liste
+  plots[[col]] <- p
+}
+
+# Affichage des graphiques (2 colonnes)
+do.call(grid.arrange, c(plots, ncol = 2))
 ```
-TODO trouver comment faire une boucle ou un truc du genre pour afficher un graphique par colonne.
+
+Voici les données observées que ne jouent pas avec la donnée: valeur min `DURATION` -6?, `MALE_SINGLE` une valeur à 2, `GUARANTOR` -1, `PRESENT_RESIDENT` valeurs de 1 à 4 alors que la données dit valeurs 0 à 3, valeur max `AGE` 151. Pour `AGE` il y a 14 valeurs manquantes.
+
+Voici les corrections validées par le client:
+
+### Correction des erreurs dans les données
+
+```{r}
+
+```
+
 
 ## Premier modèle de régression multiple
 
