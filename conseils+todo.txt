@@ -1,0 +1,19 @@
+Ne pas mettre des copies d'écrans dans le rapport -> utiliser gt TODO pour les glm
+15 minutes pour présenter -> il faut s'entraîner pour être dans les temps
+
+Il faut rappeler le sujet
+
+Faire une table des matières et expliquer cette table (rapidement)
+
+Il faut mettre des graphiques expliquant des données
+Il faut présenter les résultats
+On ne veut pas trop de texte sur les slides
+
+Faire une synthèse
+
+Faire une extension (ce qu'on n'a pas eu le temps de faire et ce qu'on aurait pu faire) -> peut-être utiliser un réseau de neurones.
+
+
+Rendre tout le dossier avec le rapport et la presentation
+
+SUPPRIMER CE FICHIER AVANT DE RENDRE

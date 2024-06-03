@@ -45,7 +45,8 @@ df$JOB <- as.factor(df$JOB)
 ### Vérification des données
 
 ```{r}
-summary(df)
+library(skimr)
+skim(df)
 ```
 
 ```{r}
@@ -65,11 +66,12 @@ plots <- list()
 # Boucle pour faire un graphique par colonne
 for (col in columns_to_plot) {
   # Création du graphique
-  p <- ggplot(df, aes_string(x = col)) +
+  p <- ggplot(df, aes_string(x = col, fill = "as.factor(RESPONSE)")) +
     geom_bar() +
     ggtitle(paste("Colonne: ", col)) +
     xlab(col) +
-    theme_minimal()
+    scale_fill_manual(values = c("0" = "#17becf", "1" = "#ff9896"), name = "RESPONSE") +
+    theme_bw()
   
   # Ajout du graphique à la liste
   plots[[col]] <- p
@@ -79,79 +81,57 @@ for (col in columns_to_plot) {
 do.call(grid.arrange, c(plots, ncol = 2))
 ```
 
-Voici les données observées que ne jouent pas avec la donnée: valeur min `DURATION` -6?, `MALE_SINGLE` une valeur à 2, `GUARANTOR` -1, `PRESENT_RESIDENT` valeurs de 1 à 4 alors que la données dit valeurs 0 à 3, valeur max `AGE` 151. Pour `AGE` il y a 14 valeurs manquantes.
-
-Voici les corrections validées par le client:
+Voici les données observées que ne jouent pas avec la donnée: valeur min `DURATION` -6, `MALE_SINGLE` une valeur à 2, `GUARANTOR` -1, `PRESENT_RESIDENT` valeurs de 1 à 4 alors que la données dit valeurs 0 à 3, valeur max `AGE` 151. Pour `AGE` il y a 14 valeurs manquantes.
 
 ### Correction des erreurs dans les données
 
-```{r}
+Voici les corrections validées après discussion avec le client:
 
+`DURATION` mettre la valeur à 0, `MALE_SINGLE` mettre la valeur à 1, `GUARANTOR` 1, garder `PRESENT_RESIDENT` comme ça parce que c'est plus efficace, `AGE` 151 mettre à 75, pour ce qui est des valeurs manquantes on a plusieurs options: ne rien faire; faire médiane ou utiliser des manières plus compliquées pour trouver la valeur à mettre; supprimer les données.
+
+Puisque les données manquantes sont à des endroits aléatoires je vais choisir la première option qui est de ne rien faire.
+
+Pour corriger ces erreurs j'ai décider de créer un nouveau fichier `GermanCreditCorrected.csv` parce qu'il n'y a pas beaucoup de changements à faire et parce que c'est plus simple que de modifier les données en ***R***. Cette manière de faire nous permet aussi de garder une trace des données originales.
+
+```{r}
+df <- read.csv("data/GermanCreditCorrected.csv", header=TRUE, sep=";")
+
+# Conversion des données catégorielles en factor
+df$CHK_ACCT <- as.factor(df$CHK_ACCT)
+df$HISTORY <- as.factor(df$HISTORY)
+df$SAV_ACCT <- as.factor(df$SAV_ACCT)
+df$EMPLOYMENT <- as.factor(df$EMPLOYMENT)
+df$PRESENT_RESIDENT <- as.factor(df$PRESENT_RESIDENT)
+df$JOB <- as.factor(df$JOB)
 ```
 
 
 ## Premier modèle de régression multiple
 
 ```{r}
-df.lm <- lm(formula = RESPONSE ~ . - OBS., data = df)
+df.lm <- glm(formula = RESPONSE ~ . - OBS., data = df, family=binomial())
 summary(df.lm)
-```
-
-```{r}
-#| warning: false
-#| fig-height: 7
-library(ggResidpanel)
-resid_interact(df.lm, plots = c("resid", "qq", "cookd", "boxplot"))
 ```
 
 ## Recherche du meilleur modèle
 
-[link](https://towardsdatascience.com/selecting-the-best-predictors-for-linear-regression-in-r-f385bf3d93e9)
+Puisqu'on utilise un glm (*Genearlized Linear Model*) on ne peut pas utiliser la librairie `leaps` ou des autres techniques qu'on a vu dans les travaux pratiques précédents.
 
-```{{r}}
-library(leaps)
-Best_Subset <- regsubsets(RESPONSE~., data = df, nbest = 1, nvmax = NULL, force.in = NULL, force.out =  "OBS.", method = "exhaustive")
-summary_best_subset <- summary(regsubsets.out)
-as.data.frame(summary_best_subset$outmat)
-which.max(summary_best_subset$adjr2)
-summary_best_subset$which[13,]
+Il suffit de regarder la sortie du premier modèle pour savoir quelles variables sont significatives.
+
+Voici la liste de celles que j'ai trouvé:
+"CHK_ACCT2", "CHK_ACCT3", "DURATION", "HISTORY3", "HISTORY4", 
+"NEW_CAR", "AMOUNT", "SAV_ACCT3", "SAV_ACCT4", "INSTALL_RATE",                     "MALE_SINGLE", "GUARANTOR", "PRESENT_RESIDENT2", "OTHER_INSTALL", "FOREIGN"
+
+Voici le modèle en question
+
+```{r}
+other_model <- glm(formula = RESPONSE ~ CHK_ACCT + HISTORY + DURATION + NEW_CAR + AMOUNT + SAV_ACCT + INSTALL_RATE + MALE_SINGLE + GUARANTOR + PRESENT_RESIDENT + OTHER_INSTALL + FOREIGN, data = df, family=binomial())
+summary(other_model)
 ```
 
-[Source](http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/155-best-subsets-regression-essentials-in-r/)
-```{{r}}
-library(leaps)
-models <- regsubsets(RESPONSE ~ ., data=df, nvmax=NULL, force.out = "OBS.")
-summary(models)
-res.sum <- summary(models)
-data.frame(
-  Adj.R2 = which.max(res.sum$adjr2),
-  CP = which.min(res.sum$cp),
-  BIC = which.min(res.sum$bic)
-)
+```{r}
+library(performance)
+compare_performance(df.lm, other_model, rank=TRUE, verbose=FALSE)
 ```
-
-```{{r}}
-get_model_formula <- function(id, object, outcome){
-  # get models data
-  models <- summary(object)$which[id,-1]
-  # Get outcome variable
-  form <- as.formula(object$call[[2]])
-  outcome <- all.vars(form)[1]
-  # Get model predictors
-  predictors <- names(which(models == TRUE))
-  predictors <- paste(predictors, collapse = "+")
-  # Build model formula
-  as.formula(paste0(outcome, "~", predictors))
-}
-
-#lm10 <- lm(get_model_formula(10, models, "RESPONSE"), data=df)
-#summary(lm10)
-
-#lm18 <- lm(get_model_formula(18, models, "RESPONSE"), data=df)
-#summary(lm18)
-
-#lm23 <- lm(get_model_formula(23, models, "RESPONSE"), data=df)
-#summary(lm23)
-```
-
 
