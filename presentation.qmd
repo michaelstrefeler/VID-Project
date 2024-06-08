@@ -1,0 +1,234 @@
+---
+title: "Projet de visualisation des données"
+author: "Michael Strefeler"
+lang: fr
+format: 
+  revealjs:
+    theme: ["style.scss"]
+    slide-number: c/t
+    menu: false
+    incremental: true
+    transition: fade
+    title-slide-attributes:
+      data-background-image: images/dm.jpeg
+      data-background-size: cover
+      data-background-opacity: "0.4"
+---
+
+```{r setup}
+library(skimr)
+library(ggplot2)
+library(gridExtra)
+library(gt)
+
+# Données brutes
+
+df <- read.csv("data/GermanCredit.csv", header=TRUE, sep=";")
+
+# Conversion des données catégorielles en factor
+df$CHK_ACCT <- as.factor(df$CHK_ACCT)
+df$HISTORY <- as.factor(df$HISTORY)
+df$SAV_ACCT <- as.factor(df$SAV_ACCT)
+df$EMPLOYMENT <- as.factor(df$EMPLOYMENT)
+df$PRESENT_RESIDENT <- as.factor(df$PRESENT_RESIDENT)
+df$JOB <- as.factor(df$JOB)
+
+
+# Données corrigées
+
+df2 <- read.csv("data/GermanCreditCorrected.csv", header=TRUE, sep=";")
+
+# Conversion des données catégorielles en factor
+df2$CHK_ACCT <- as.factor(df2$CHK_ACCT)
+df2$HISTORY <- as.factor(df2$HISTORY)
+df2$SAV_ACCT <- as.factor(df2$SAV_ACCT)
+df2$EMPLOYMENT <- as.factor(df2$EMPLOYMENT)
+df2$PRESENT_RESIDENT <- as.factor(df2$PRESENT_RESIDENT)
+df2$JOB <- as.factor(df2$JOB)
+```
+
+
+
+## Sommaire
+
+-   But du projet
+
+-   Sujet
+
+-   Présentation des données
+
+-   Analyse exploratoire des données
+
+-   Choix du modèle de régression
+
+-   Pour aller plus loin
+
+-   Questions
+
+## But du projet
+
+::: columns
+
+::: {.column width="60%"}
+
+-   Mise en pratique des connaissances de ***R***
+
+-   Projet concret avec données réelles
+
+-   Préparation au monde du travail
+
+:::
+
+::: {.column width="40%"}
+![](images/R_logo.svg){width="200"}
+![](images/tidyverse.png){width="200"}
+![](images/quarto.png){width="200"}
+:::
+:::
+
+
+::: notes
+Il va falloir beaucoup de présentations de ce type à nos clients ou collègues
+:::
+
+## Présentation des données
+
+Données de crédits bancaires allemands, se trouvant dans un .CSV de 1000 lignes
+
+-   30 variables diverses par client
+
+-   Une variable de réponse binaire
+
+
+::: notes
+Donner des exemples de variables (solde du compte courant, montant du crédit, etc.)
+
+On peut classifier ces variables en deux catégories, les informations concernant la banque et les données personnelles.
+
+Une variable de réponse binaire -> Est-ce qu'on donne un crédit au client ou non?
+:::
+
+
+## Analyse exploratoire des données
+
+::: columns
+::: column
+![](images/skimr.png)
+:::
+
+::: column
+Biais des données
+```{r}
+ggplot(df, aes_string(x = df$RESPONSE, fill = "as.factor(RESPONSE)")) +
+    geom_bar() +
+    ggtitle(paste("RESPONSE: ")) +
+    xlab(df$RESPONSE) +
+    scale_fill_manual(values = c("0" = "#1a80bb", "1" = "#a00000"), name = "RESPONSE") +
+    theme_bw()
+```
+:::
+:::
+
+## Données "bancaires"
+
+```{r}
+# Liste des colonnes sans "OBS."
+columns_to_plot <- c("CHK_ACCT", "DURATION", "SAV_ACCT", "GUARANTOR")
+
+# Liste des graphiques
+plots <- list()
+
+# Boucle pour faire un graphique par colonne
+for (col in columns_to_plot) {
+  # Création du graphique
+  p <- ggplot(df, aes_string(x = col, fill = "as.factor(RESPONSE)")) +
+    geom_bar() +
+    ggtitle(paste("Colonne: ", col)) +
+    xlab(col) +
+    scale_fill_manual(values = c("0" = "#1a80bb", "1" = "#a00000"), name = "RESPONSE") +
+    theme_bw()
+  
+  # Ajout du graphique à la liste
+  plots[[col]] <- p
+}
+
+# Affichage des graphiques (2 colonnes)
+do.call(grid.arrange, c(plots, ncol = 2))
+```
+
+::: notes
+Parler des valeurs étranges et expliquer chaque colonne
+(A guarantor is an individual that agrees to pay a borrower's debt if the borrower defaults on their obligation.)
+:::
+
+## Données "personnelles"
+
+```{r}
+# Liste des colonnes sans "OBS."
+columns_to_plot <- c("MALE_SINGLE", "AGE", "PRESENT_RESIDENT", "JOB")
+
+# Liste des graphiques
+plots <- list()
+
+# Boucle pour faire un graphique par colonne
+for (col in columns_to_plot) {
+  # Création du graphique
+  p <- ggplot(df, aes_string(x = col, fill = "as.factor(RESPONSE)")) +
+    geom_bar() +
+    ggtitle(paste("Colonne: ", col)) +
+    xlab(col) +
+    scale_fill_manual(values = c("0" = "#1a80bb", "1" = "#a00000"), name = "RESPONSE") +
+    theme_bw()
+  
+  # Ajout du graphique à la liste
+  plots[[col]] <- p
+}
+
+# Affichage des graphiques (2 colonnes)
+do.call(grid.arrange, c(plots, ncol = 2))
+```
+
+::: notes
+Parler des valeurs étranges et expliquer chaque colonne
+:::
+
+## Choix du modèle de régression
+
+-   Comment choisir?
+
+::: {.fragment}
+Variables choisies
+
+"CHK_ACCT", "DURATION", "HISTORY","NEW_CAR", "AMOUNT", "SAV_ACCT", "INSTALL_RATE", "MALE_SINGLE", "GUARANTOR", "PRESENT_RESIDENT", "OTHER_INSTALL", "FOREIGN"
+:::
+
+::: notes
+Pour choisir les variables significatives il suffisant de prendre celles qui avaient une p-valeur < 0.05
+
+Solde du compte courant, durée du crédit, historique du client, est-ce que le client va utiliser le crédit pour s'acheter une nouvelle voiture?,
+solde du compte épargne, etc.
+:::
+
+## Pour aller plus loin
+
+::: columns
+
+::: column
+Questions à se poser
+
+-   Pourquoi tant de biais dans les données?
+
+-   Les variables parlent uniquement d'hommes -> et les femmes?
+:::
+
+::: column
+À essayer
+
+-   Les réseaux de neurones
+
+-   Les arbres de décision
+:::
+:::
+
+##  Avez-vous des questions? {.r-fit-text style="text-align:center;" background-image="images/question.png" background-size="400px"}
+

@@ -70,7 +70,7 @@ for (col in columns_to_plot) {
     geom_bar() +
     ggtitle(paste("Colonne: ", col)) +
     xlab(col) +
-    scale_fill_manual(values = c("0" = "#17becf", "1" = "#ff9896"), name = "RESPONSE") +
+    scale_fill_manual(values = c("0" = "#1a80bb", "1" = "#a00000"), name = "RESPONSE") +
     theme_bw()
   
   # Ajout du graphique à la liste
@@ -109,29 +109,40 @@ df$JOB <- as.factor(df$JOB)
 ## Premier modèle de régression multiple
 
 ```{r}
-df.lm <- glm(formula = RESPONSE ~ . - OBS., data = df, family=binomial())
-summary(df.lm)
+library(gtsummary)
+df.glm <- glm(formula = RESPONSE ~ . - OBS., data = df, family=binomial())
+tbl_regression(df.glm, exponentiate = TRUE)
 ```
 
-## Recherche du meilleur modèle
+## Recherche d'un meilleur modèle
 
-Puisqu'on utilise un glm (*Genearlized Linear Model*) on ne peut pas utiliser la librairie `leaps` ou des autres techniques qu'on a vu dans les travaux pratiques précédents.
+Puisqu'on utilise un glm (*Generalized Linear Model*) on ne peut pas utiliser la librairie `leaps` ou des autres techniques qu'on a vu dans les travaux pratiques précédents.
 
 Il suffit de regarder la sortie du premier modèle pour savoir quelles variables sont significatives.
 
 Voici la liste de celles que j'ai trouvé:
-"CHK_ACCT2", "CHK_ACCT3", "DURATION", "HISTORY3", "HISTORY4", 
-"NEW_CAR", "AMOUNT", "SAV_ACCT3", "SAV_ACCT4", "INSTALL_RATE",                     "MALE_SINGLE", "GUARANTOR", "PRESENT_RESIDENT2", "OTHER_INSTALL", "FOREIGN"
+"CHK_ACCT2", "CHK_ACCT3", "DURATION", "HISTORY3", "HISTORY4","NEW_CAR", "AMOUNT", "SAV_ACCT3", "SAV_ACCT4", "INSTALL_RATE",                     "MALE_SINGLE", "GUARANTOR", "PRESENT_RESIDENT2", "OTHER_INSTALL", "FOREIGN"
 
 Voici le modèle en question
 
 ```{r}
+library(gtsummary)
 other_model <- glm(formula = RESPONSE ~ CHK_ACCT + HISTORY + DURATION + NEW_CAR + AMOUNT + SAV_ACCT + INSTALL_RATE + MALE_SINGLE + GUARANTOR + PRESENT_RESIDENT + OTHER_INSTALL + FOREIGN, data = df, family=binomial())
-summary(other_model)
+tbl_regression(other_model, exponentiate = TRUE)
 ```
 
 ```{r}
+library(gt)
 library(performance)
-compare_performance(df.lm, other_model, rank=TRUE, verbose=FALSE)
+
+compare_performance(df.glm, other_model, metrics="common", rank=TRUE, verbose=FALSE) %>%
+  gt() %>%
+  tab_header(title = "Comparaison des deux modèles")
 ```
 
+```{r}
+performance_aic(df.glm)
+performance_aic(other_model)
+```
+
+On peut voir que le premier modèle est plus performant que le deuxième, mais les valeurs AIC des deux modèles sont assez proches. Puisque le premier modèle utilise toutes les variables explicatives c'est assez normal que sa performance soit meilleure.
